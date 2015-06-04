@@ -1,0 +1,35 @@
+#!/bin/sh
+
+GCOV="@GCOV@"
+LN_S="@LN_S@"
+OBJEXT="@OBJEXT@"
+enable_gcov="@enable_gcov@"
+srcdir="@top_srcdir@/src"
+my_name=`basename $0`
+
+if test "${enable_gcov}" = "yes"; then
+  for src in ${srcdir}/*.c; do
+    gcov_src=`basename "${src}"`
+    gcov_exe=`echo "${gcov_src}" | sed -e 's/\.c//'`
+    gcov_obj="${gcov_exe}.${OBJEXT}"
+    if test ! -e "${gcov_obj}" -a -e "${gcov_exe}-${gcov_obj}"; then
+      gcov_obj="${gcov_exe}-${gcov_obj}"
+    fi
+
+    ${GCOV} \
+      --source-prefix="${srcdir}" \
+      --object-directory="." \
+      --object-file="${gcov_obj}" \
+      ${gcov_src} >/dev/null 2>/dev/null
+  done
+
+  if ./gcov_check_coverage *.gcov; then
+    exit 0
+  else
+    grep -E -A3 -B3 '(#####)|(SNH)' *.gcov
+    exit 1
+  fi
+else
+  echo "Code coverage disabled - skipping test"
+  exit 77
+fi

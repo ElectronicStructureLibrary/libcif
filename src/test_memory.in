@@ -1,0 +1,36 @@
+#!/bin/sh
+
+VALGRIND="@VALGRIND@"
+enable_gcov="@enable_gcov@"
+enable_memprof="@enable_memprof@"
+test_programs=""
+my_name=`basename $0`
+
+if test "${enable_memprof}" = "yes" -a "${enable_gcov}" = "no"; then
+  for src in test_*; do
+    exe=`basename "${src}" | cut -d. -f1`
+    if test "${exe}" != "test_memory"; then
+      if test "${exe}" = "${src}"; then
+        test_programs="${test_programs} ${exe}"
+      fi
+    fi
+  done
+  test_programs=`echo "${test_programs}" | sort -u`
+
+  exit_code=0
+  for mem_test in ${test_programs}; do
+    ${VALGRIND} --leak-check=full ./${mem_test} 2>${mem_test}-memory-$$.log
+    if test "`grep 'ERROR SUMMARY: 0 errors' ${mem_test}-memory-$$.log`" = ""; then
+      echo "${my_name}: ${mem_test} has memory leaks"
+      exit_code=1
+    fi
+  done
+  exit ${exit_code}
+else
+  if test "${enable_gcov}" = "yes"; then
+    echo "Code coverage analysis enabled - skipping test"
+  else
+    echo "Memory profiling disabled - skipping test"
+  fi
+  exit 77
+fi
