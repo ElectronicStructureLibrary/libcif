@@ -1,0 +1,11 @@
+#!/bin/sh
+
+enable_gcov="@enable_gcov@"
+
+if test "${enable_gcov}" = "yes"; then
+  rm -f *.gcov
+  exit 0
+else
+  echo "Code coverage disabled - skipping test"
+  exit 77
+fi
