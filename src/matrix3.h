@@ -6,7 +6,7 @@ typedef struct Matrix3 {
     double x[3][3];
 } Matrix3;
 
-inline void m3_new(Matrix3 *const m, double xx, double xy, double xz, double yx, double yy, double yz, double zx, double zy, double zz) {
+static inline void m3_new(Matrix3 *const m, double xx, double xy, double xz, double yx, double yy, double yz, double zx, double zy, double zz) {
     m->x[0][0] = xx;
     m->x[1][0] = xy;
     m->x[2][0] = xz;
@@ -20,7 +20,7 @@ inline void m3_new(Matrix3 *const m, double xx, double xy, double xz, double yx,
     m->x[2][2] = zz;
 }
 
-inline Matrix3 m3_transpose(const Matrix3 *const m) {
+static inline Matrix3 m3_transpose(const Matrix3 *const m) {
     Matrix3 mt;
     for (int i=0; i<3; i++) {
         for (int j=0; j<3; j++) {
@@ -30,14 +30,14 @@ inline Matrix3 m3_transpose(const Matrix3 *const m) {
     return mt;
 }
 
-inline double m3_det(const Matrix3 *const m) {
+static inline double m3_det(const Matrix3 *const m) {
     double a0 = m->x[1][1]*m->x[2][2] - m->x[1][2]*m->x[2][1];
     double a1 = m->x[1][2]*m->x[2][0] - m->x[1][0]*m->x[2][2];
     double a2 = m->x[1][0]*m->x[2][1] - m->x[1][1]*m->x[2][0];
     return m->x[0][0]*a0 + m->x[0][1]*a1 + m->x[0][2]*a2;
 }
 
-inline Matrix3 m3_inv(const Matrix3 *const m) {
+static inline Matrix3 m3_inv(const Matrix3 *const m) {
     double det = 1.0/m3_det(m);
     Matrix3 inv;
     inv.x[0][0] = det*(m->x[1][1]*m->x[2][2] - m->x[1][2]*m->x[2][1]);
@@ -55,7 +55,7 @@ inline Matrix3 m3_inv(const Matrix3 *const m) {
     return inv;
 }
 
-inline Vector3 m3_mv(const Matrix3 *const m, const Vector3 *const v) {
+static inline Vector3 m3_mv(const Matrix3 *const m, const Vector3 *const v) {
     Vector3 mv;
     for (int i=0; i<3; i++) {
         for (int j=0; j<3; j++) {
@@ -65,7 +65,7 @@ inline Vector3 m3_mv(const Matrix3 *const m, const Vector3 *const v) {
     return mv;
 }
 
-inline Matrix3 m3_mm(const Matrix3 *const m1, const Matrix3 *const m2) {
+static inline Matrix3 m3_mm(const Matrix3 *const m1, const Matrix3 *const m2) {
     Matrix3 mm;
     for (int i=0; i<3; i++) {
         for (int j=0; j<3; j++) {
@@ -78,7 +78,7 @@ inline Matrix3 m3_mm(const Matrix3 *const m1, const Matrix3 *const m2) {
     return mm;
 }
 
-inline bool m3_eq(const Matrix3 *const m1, const Matrix3 *const m2, double tol) {
+static inline bool m3_eq(const Matrix3 *const m1, const Matrix3 *const m2, double tol) {
     bool eq = true;
     for (int j=0; j<3; j++) {
         for (int i=0; i<3; i++) {
