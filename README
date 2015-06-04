@@ -1,4 +1,22 @@
 libcif
 ======
 
-A simple library for parsing CIF files for electronic structure codes
+A simple C library for parsing CIF files for electronic structure codes
+
+License
+-------
+
+libcif is under the New BSD license.  See LICENSE for more details.
+
+Note that some scripts in the build system and test framework are under GPL or LGPL (see
+COPYING and COPYING.LESSER).  The license is explicitly stated in affected files.
+
+Authors
+-------
+
+See AUTHORS file.
+
+See also
+--------
+
+The functionality (and indeed behaviour) of libcif is inspired by cif2cell.
