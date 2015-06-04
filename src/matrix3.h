@@ -6,7 +6,19 @@ typedef struct Matrix3 {
     double x[3][3];
 } Matrix3;
 
-//void m3_new();
+void m3_new(Matrix3 *const m, double xx, double xy, double xz, double yx, double yy, double yz, double zx, double zy, double zz) {
+    m->x[0][0] = xx;
+    m->x[1][0] = xy;
+    m->x[2][0] = xz;
+
+    m->x[0][1] = yx;
+    m->x[1][1] = yy;
+    m->x[2][1] = yz;
+
+    m->x[0][2] = zx;
+    m->x[1][2] = zy;
+    m->x[2][2] = zz;
+}
 
 Matrix3 m3_transpose(const Matrix3 *const m) {
     Matrix3 mt;
