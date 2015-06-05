@@ -34,7 +34,7 @@
 #
 
 # Initialize Autoconf
-AC_PREREQ(2.69)
+AC_PREREQ(2.68)
 AC_INIT([LibCIF], [0.0.0],
   [https://github.com/jsspencer/libcif/issues], [libcif])
 AC_REVISION([Autotools support for LibCIF])
@@ -44,7 +44,7 @@ AC_CONFIG_SRCDIR([.])
 
 # Initialize Automake
 AC_CANONICAL_TARGET
-AM_INIT_AUTOMAKE([1.14 parallel-tests color-tests])
+AM_INIT_AUTOMAKE([1.11 parallel-tests color-tests])
 AM_CONFIG_HEADER([config.h])
 
 # ---------------------------------------------------------------------------- #
