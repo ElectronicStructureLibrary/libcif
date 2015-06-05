@@ -83,7 +83,7 @@ static inline bool m3_eq(const Matrix3 *const m1, const Matrix3 *const m2, doubl
     bool eq = true;
     for (int j=0; j<3; j++) {
         for (int i=0; i<3; i++) {
-            eq = abs(m1->x[i][j] - m1->x[i][j]) < tol;
+            eq = fabs(m1->x[i][j] - m1->x[i][j]) < tol;
             if (!eq) break;
         }
     }

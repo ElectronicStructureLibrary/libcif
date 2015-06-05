@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <stdbool.h>
+#include <stdio.h>
 
 typedef struct Vector3 {
     double x[3];
@@ -43,7 +44,7 @@ static inline double v3_len(const Vector3 *const v) {
 static inline bool v3_eq(const Vector3 *const v1, const Vector3 *const v2, double tol) {
     bool eq = true; 
     for (int i=0; i<3; i++) {
-        eq = abs(v1->x[i] - v2->x[i]) < tol;
+        eq = fabs(v1->x[i] - v2->x[i]) < tol;
         if (!eq) break; 
     }
     return eq;
