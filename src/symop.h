@@ -15,3 +15,5 @@ typedef struct SymOp_
 bool symop_new(SymOp *symop, const char *opx, const char *opy, const char *opz);
 
 void symop_dump(SymOp *symop);
+
+Vector3 symop_at(SymOp *symop, const Vector3 *vec);

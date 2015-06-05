@@ -1,5 +1,4 @@
 #include <stdlib.h>
-#include <stdbool.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -8,7 +7,7 @@
 #define M_PI acos(-1.0)
 #endif
 
-#include "symop.h"
+#include "uc.h"
 #include "vector3.h"
 #include "matrix3.h"
 
@@ -319,6 +318,7 @@ static void getSymOpFromHall(const char *hallsymbol,
         *nsymops = j;
         return;
       }
+  *nsymops = 0;
 }
 
 /**
@@ -365,10 +365,232 @@ static void fromSymOpToCartesians(SymOp *symops, bool *mask, size_t nsymops,
       }
 }
 
-void toto(const char *hallsymbol, bool primitive,
-          double a, double b, double c,
-          double alpha, double beta, double gamma,
-          double eps)
+/**
+ * Test that the lattice vectors are invariant under all space group operations
+ * If not, the data is given in some non-standard representation that presently
+ * can't be handled.
+ */
+static bool checkSymOp(SymOp *symops, bool *mask, size_t nsymops,
+                       CrystalSystem crys, Matrix3 *convCell, double eps)
+{
+  int i, j;
+  Vector3 v1, vm1, vrot, trans, lv[3], lvm[3];
+  
+  switch (crys)
+    {
+    case (HEXAGONAL):
+    case (TRIGONAL):
+      /* Hexagonal and trigonal as a special case...
+         check that the hexagonal planes are in the ab plane */
+      v3_new(&v1, 0., 0., 1.);
+      v3_new(&vm1, 0., 0., -1.);
+      for (i = 0; i < nsymops; i++)
+        if (mask[i])
+          {
+            v3_from_array(&vrot, symops[i].rot.x[2]);
+            if (!v3_eq(&vrot, &v1, eps) && !v3_eq(&vrot, &vm1, eps))
+              return false;
+          }
+      return true;
+    default:
+      v3_from_array(lv + 0, convCell->x[0]);
+      v3_from_array(lv + 1, convCell->x[1]);
+      v3_from_array(lv + 2, convCell->x[2]);
+      v3_new(lvm + 0, -convCell->x[0][0], -convCell->x[0][1], -convCell->x[0][2]);
+      v3_new(lvm + 1, -convCell->x[1][0], -convCell->x[1][1], -convCell->x[1][2]);
+      v3_new(lvm + 2, -convCell->x[2][0], -convCell->x[2][1], -convCell->x[2][2]);
+      for (i = 0; i < nsymops; i++)
+        if (mask[i] && v3_len(&symops[i].trans) < eps)
+            for (j = 0; j < 3; j++)
+              {
+                v3_from_array(&vrot, lv[j].x);
+                trans = m3_mv(&symops[i].rot, &vrot);
+                if (!v3_eq(&trans, lv + 0, eps) &&
+                    !v3_eq(&trans, lv + 1, eps) &&
+                    !v3_eq(&trans, lv + 2, eps) &&
+                    !v3_eq(&trans, lvm + 0, eps) &&
+                    !v3_eq(&trans, lvm + 1, eps) &&
+                    !v3_eq(&trans, lvm + 2, eps))
+                  return false;
+              }
+    }
+  return true;
+}
+
+typedef struct Node_
+{
+  Vector3 position;
+  Concentration *species;
+  unsigned int nspecies;
+  char *label;
+  bool mask;
+} Node;
+
+struct AtomicStructure_
+{
+  unsigned int nineq, nat;
+  Node **ineq;
+  unsigned int *ndup;
+};
+
+static AtomicStructure* generateCell(SymOp *symops, bool *mask, size_t nsymops,
+                                     Vector3 *tvecs, unsigned int ntvec,
+                                     double *xred, Concentration *conc, unsigned int nat,
+                                     double eps)
+{
+  Node *ineq;
+  int i, j, k, si, sj, n, nsym;
+  AtomicStructure *at;
+  Vector3 pos;
+  bool add;
+
+  /* Count symmetries for later. */
+  nsym = 0;
+  for (j = 0; j < nsymops; j++)
+    if (mask[j])
+      nsym += 1;
+
+  /* Generate an array of Node based on given atoms. */
+  ineq = malloc(sizeof(Node) * nat);
+  for (i = 0; i < nat; i++)
+    {
+      v3_from_array(&ineq[i].position, xred + 3 * i);
+      ineq[i].mask = true;
+      ineq[i].nspecies = 1;
+      ineq[i].species = malloc(sizeof(Concentration));
+      ineq[i].species[0] = conc[i];
+    }
+  /* Clean up the given array in case of duplicates. */
+  for (i = 0; i < nat; i++)
+    for (j = nat -1; j > i; j--)
+      if (v3_eq(&ineq[i].position, &ineq[j].position, eps))
+        {
+          /* Mixup species of j in i and mask j. */
+          for (si = 0; si < ineq[i].nspecies; i++)
+            if (!strcmp(ineq[i].species[si].symbol,
+                        ineq[j].species[0].symbol))
+              {
+                ineq[i].species[si].value += ineq[j].species[0].value;
+                break;
+              }
+          if (si == ineq[i].nspecies)
+            {
+              ineq[i].species = realloc(ineq[i].species, sizeof(Concentration) * (ineq[i].nspecies + 1));
+              ineq[i].species[si] = ineq[j].species[0];
+              ineq[i].nspecies += 1;
+            }
+          ineq[j].mask = false;
+        }
+  /* Count atoms and generate at. */
+  n = 0;
+  for (i = 0; i < nat; i++)
+    if (ineq[i].mask) n += 1;
+  at = malloc(sizeof(AtomicStructure));
+  at->nat = n;
+  at->nineq = n;
+  at->ineq = malloc(sizeof(Node*) * n);
+  at->ndup = malloc(sizeof(unsigned int) * n);
+  /* Steal true inequivalent atoms, and clean the others. */
+  for (i = 0, j = 0; i < nat; i++)
+    if (ineq[i].mask)
+      {
+        at->ndup[j] = 1;
+        /* Preallocate everyone. */
+        at->ineq[j] = malloc(sizeof(Node) * (1 + nsym));
+        at->ineq[j][0] = ineq[i];
+        j += 1;
+      }
+    else
+      free(ineq[i].species);
+  free(ineq);
+  /* Duplicate all atoms. */
+  for (i = 0; i < at->nineq; i++)
+    {
+      for (j = 0; j < nsymops; j++)
+        if (mask[j])
+          {
+            at->ineq[i][at->ndup[i]].position =
+              symop_at(symops + j, &at->ineq[i][0].position);
+            /* Only use this position if not equivalent by translation. */
+            add = true;
+            for (si = 0; si < at->ndup[i] && add; si++)
+              for (k = 0; k < ntvec && add; k++)
+                {
+                  pos = v3_sum(&at->ineq[i][at->ndup[i]].position, tvecs + k);
+                  add = !v3_eq(&at->ineq[i][si].position, &pos, eps);
+                }
+            if (add)
+              {
+                /* Shallow copy here, only first node store concentrations. */
+                at->ineq[i][at->ndup[i]] = at->ineq[i][0];
+                at->ndup[i] += 1;
+              }
+          }
+      at->ineq[i] = realloc(at->ineq[i], sizeof(Node) * at->ndup[i]);
+    }
+  /* Mark duplicated nodes in full box. */
+  for (i = 0; i < at->nineq; i++)
+    for (si = 0; si < at->ndup[i]; si++)
+      for (j = 0; j < at->nineq; j++)
+        for (sj = 0; sj < at->ndup[j]; sj++)
+          if (v3_eq(&at->ineq[i][si].position, &at->ineq[j][sj].position, eps))
+            at->ineq[j][sj].mask = (i == j && si == sj);
+  /* Count atoms. */
+  at->nat = 0;
+  for (i = 0; i < at->nineq; i++)
+    for (si = 0; si < at->ndup[i]; si++)
+      if (at->ineq[i][si].mask)
+        at->nat += 1;
+
+  return at;
+}
+
+void atomicStructureFree(AtomicStructure *at)
+{
+  int i;
+
+  for (i = 0; i < at->nineq; i++)
+    {
+      free(at->ineq[i][0].species);
+      /* for (j = 0; j < at->ndup[i]; j++) */
+      /*   { */
+      /*     free(at->ineq[i][j].label); */
+      /*   } */
+      free(at->ineq[i]);
+    }
+  free(at->ndup);
+  free(at->ineq);
+  free(at);
+}
+
+void atomicStructureDump(AtomicStructure *at)
+{
+  int i, si;
+  
+  fprintf(stdout, "atomic structure:\n");
+  fprintf(stdout, "  number of ineq atoms: %d\n", at->nineq);
+  fprintf(stdout, "  number of total atoms: %d\n", at->nat);
+  fprintf(stdout, "  number of atoms per ineq:\n");
+  for (i = 0; i < at->nineq; i++)
+    fprintf(stdout, "  - %d\n", at->ndup[i]);
+  fprintf(stdout, "  positions:\n");
+  for (i = 0; i < at->nineq; i++)
+    for (si = 0; si < at->ndup[i]; si++)
+      if (at->ineq[i][si].mask)
+        {
+          fprintf(stdout,
+                  "  - [%g, %g, %g]\n",
+                  at->ineq[i][si].position.x[0],
+                  at->ineq[i][si].position.x[1],
+                  at->ineq[i][si].position.x[2]);
+        }
+}
+
+AtomicStructure* toto(const char *hallsymbol, bool primitive,
+                      double a, double b, double c,
+                      double alpha, double beta, double gamma,
+                      double *xred, Concentration *conc, unsigned int nat,
+                      double eps)
 {
   unsigned int sgnr;
   CrystalSystem crys;
@@ -378,8 +600,7 @@ void toto(const char *hallsymbol, bool primitive,
   size_t ntrans, nsymops;
   SymOp symops[MAX_HALL_SYMOPS];
   bool mask[MAX_HALL_SYMOPS];
-
-  int i;
+  AtomicStructure *at;
 
   sgnr = sgFromHall(hallsymbol);
   crys = crystal_system(sgnr);
@@ -407,12 +628,13 @@ void toto(const char *hallsymbol, bool primitive,
               "primitive cell: [%g, %g, %g\n"
               "                 %g, %g, %g\n"
               "                 %g, %g, %g]\n",
-              lattrans.x[0][0], lattrans.x[0][1], lattrans.x[0][2],
-              lattrans.x[1][0], lattrans.x[1][1], lattrans.x[1][2],
-              lattrans.x[2][0], lattrans.x[2][1], lattrans.x[2][2]);          
+              primCell.x[0][0], primCell.x[0][1], primCell.x[0][2],
+              primCell.x[1][0], primCell.x[1][1], primCell.x[1][2],
+              primCell.x[2][0], primCell.x[2][1], primCell.x[2][2]);          
     }
   else
     {
+      ntrans = 1;
       v3_new(transvecs, 0.0, 0.0, 0.0);
       m3_new(&lattrans,
              1, 0, 0,
@@ -422,13 +644,20 @@ void toto(const char *hallsymbol, bool primitive,
 
   /* Get unique symmetry operations in cartesians. */
   getSymOpFromHall(hallsymbol, symops, &nsymops);
-  for (i = 0; i < nsymops; i++)
-    symop_dump(symops + i);
+  /* for (i = 0; i < nsymops; i++) */
+  /*   symop_dump(symops + i); */
 
   maskSymOp(symops, mask, nsymops, transvecs, ntrans, eps);
   fromSymOpToCartesians(symops, mask, nsymops, &convCell, &lattrans);
 
-  for (i = 0; i < nsymops; i++)
-    if (mask[i])
-      symop_dump(symops + i);
+  /* for (i = 0; i < nsymops; i++) */
+  /*   if (mask[i]) */
+  /*     symop_dump(symops + i); */
+
+  if (!checkSymOp(symops, mask, nsymops, crys, &convCell, eps))
+    return NULL;
+
+  at = generateCell(symops, mask, nsymops, transvecs, ntrans, xred, conc, nat, eps);
+
+  return at;
 }
