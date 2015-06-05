@@ -3,6 +3,9 @@ libcif
 
 A simple C library for parsing CIF files for electronic structure codes
 
+.. image:: https://travis-ci.org/jsspencer/libcif.svg?branch=master
+    :target: https://travis-ci.org/jsspencer/libcif
+
 License
 -------
 
