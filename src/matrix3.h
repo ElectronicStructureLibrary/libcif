@@ -41,15 +41,15 @@ static inline Matrix3 m3_inv(const Matrix3 *const m) {
     double det = 1.0/m3_det(m);
     Matrix3 inv;
     inv.x[0][0] = det*(m->x[1][1]*m->x[2][2] - m->x[1][2]*m->x[2][1]);
-    inv.x[0][1] = det*(m->x[1][2]*m->x[2][0] - m->x[1][0]*m->x[2][2]);
-    inv.x[0][2] = det*(m->x[1][0]*m->x[2][1] - m->x[1][1]*m->x[2][0]);
+    inv.x[0][1] = det*(m->x[0][2]*m->x[2][1] - m->x[0][1]*m->x[2][2]);
+    inv.x[0][2] = det*(m->x[0][1]*m->x[1][2] - m->x[0][2]*m->x[1][1]);
 
-    inv.x[1][0] = det*(m->x[0][1]*m->x[2][2] - m->x[0][2]*m->x[2][1]);
-    inv.x[1][1] = det*(m->x[0][2]*m->x[2][0] - m->x[0][0]*m->x[2][2]);
-    inv.x[1][2] = det*(m->x[0][0]*m->x[2][1] - m->x[0][1]*m->x[2][0]);
+    inv.x[1][0] = det*(m->x[1][2]*m->x[2][0] - m->x[1][0]*m->x[2][2]);
+    inv.x[1][1] = det*(m->x[0][0]*m->x[2][2] - m->x[0][2]*m->x[2][0]);
+    inv.x[1][2] = det*(m->x[0][2]*m->x[1][0] - m->x[0][0]*m->x[1][2]);
 
-    inv.x[2][0] = det*(m->x[0][1]*m->x[1][2] - m->x[0][2]*m->x[1][1]);
-    inv.x[2][1] = det*(m->x[0][2]*m->x[1][0] - m->x[0][0]*m->x[1][2]);
+    inv.x[2][0] = det*(m->x[1][0]*m->x[2][1] - m->x[1][1]*m->x[2][0]);
+    inv.x[2][1] = det*(m->x[0][1]*m->x[2][0] - m->x[0][0]*m->x[2][1]);
     inv.x[2][2] = det*(m->x[0][0]*m->x[1][1] - m->x[0][1]*m->x[1][0]);
 
     return inv;
@@ -58,8 +58,9 @@ static inline Matrix3 m3_inv(const Matrix3 *const m) {
 static inline Vector3 m3_mv(const Matrix3 *const m, const Vector3 *const v) {
     Vector3 mv;
     for (int i=0; i<3; i++) {
+        mv.x[i] = 0.;
         for (int j=0; j<3; j++) {
-            mv.x[i] = m->x[j][i] * v->x[j];
+            mv.x[i] += m->x[j][i] * v->x[j];
         }
     }
     return mv;
@@ -71,7 +72,7 @@ static inline Matrix3 m3_mm(const Matrix3 *const m1, const Matrix3 *const m2) {
         for (int j=0; j<3; j++) {
             mm.x[i][j] = 0.0;
             for (int k=0; k<3; k++) {
-                mm.x[i][j] = m1->x[i][k] * m2->x[k][j];
+                mm.x[i][j] += m1->x[i][k] * m2->x[k][j];
             }
         }
     }
@@ -82,7 +83,7 @@ static inline bool m3_eq(const Matrix3 *const m1, const Matrix3 *const m2, doubl
     bool eq = true;
     for (int j=0; j<3; j++) {
         for (int i=0; i<3; i++) {
-            eq = abs(m1->x[i][j] - m1->x[i][j]) < tol;
+            eq = fabs(m1->x[i][j] - m1->x[i][j]) < tol;
             if (!eq) break;
         }
     }
